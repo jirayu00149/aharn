@@ -255,7 +255,11 @@
             <strong>${escapeHtml(table.name)}</strong>
             <span class="status-badge">${window.NoodleOS.tableText(table.status)} • ${table.seats} ที่นั่ง</span>
             <img class="qr-preview" src="${escapeHtml(qrImageUrl(table))}" alt="QR ${escapeHtml(table.name)}" />
-            <input class="admin-input" readonly value="${escapeHtml(table.qr)}" />
+            <input class="admin-input" readonly value="${escapeHtml(customerUrl(table))}" />
+            <div class="qr-actions">
+              <a class="chip-button" href="${escapeHtml(customerUrl(table))}" target="_blank" rel="noreferrer">เปิดหน้าลูกค้า</a>
+              <button class="chip-button" type="button" data-action="copy-qr" data-id="${table.id}">คัดลอกลิงก์</button>
+            </div>
             <div class="table-status-row">
               ${["available", "occupied", "reserved", "cleaning"].map((status) => `<button class="chip-button ${table.status === status ? "active" : ""}" data-action="set-table-status" data-id="${table.id}" data-status="${status}">${window.NoodleOS.tableText(status)}</button>`).join("")}
               <button class="chip-button" data-action="delete-table" data-id="${table.id}">ลบ QR</button>
@@ -266,10 +270,230 @@
     `;
   }
 
+  function customerUrl(table) {
+    const url = new URL("./index.html", window.location.href);
+    url.hash = `table=${encodeURIComponent(table.id)}`;
+    return url.href;
+  }
+
   function qrImageUrl(table) {
-    const base = new URL("./index.html", window.location.href).href;
-    const data = `${base}#table=${encodeURIComponent(table.id)}`;
-    return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=8&data=${encodeURIComponent(data)}`;
+    return qrSvgDataUrl(customerUrl(table));
+  }
+
+  function qrSvgDataUrl(text) {
+    const modules = makeQrMatrix(text);
+    const quiet = 4;
+    const size = modules.length + quiet * 2;
+    const path = [];
+    for (let y = 0; y < modules.length; y += 1) {
+      for (let x = 0; x < modules.length; x += 1) {
+        if (!modules[y][x]) continue;
+        let run = 1;
+        while (x + run < modules.length && modules[y][x + run]) run += 1;
+        path.push(`M${x + quiet} ${y + quiet}h${run}v1H${x + quiet}z`);
+        x += run - 1;
+      }
+    }
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" shape-rendering="crispEdges"><path fill="#fff" d="M0 0h${size}v${size}H0z"/><path fill="#111" d="${path.join("")}"/></svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  }
+
+  function makeQrMatrix(text) {
+    const version = 5;
+    const size = version * 4 + 17;
+    const dataCodewords = 108;
+    const eccCodewords = 26;
+    const mask = 0;
+    const data = encodeQrPayload(text, dataCodewords);
+    const codewords = data.concat(reedSolomonRemainder(data, eccCodewords));
+    const modules = Array.from({ length: size }, () => Array(size).fill(false));
+    const reserved = Array.from({ length: size }, () => Array(size).fill(false));
+
+    drawFunctionPatterns(modules, reserved, version);
+    drawCodewords(modules, reserved, codewords, mask);
+    drawFormatBits(modules, reserved, mask);
+    return modules;
+  }
+
+  function encodeQrPayload(text, dataCodewords) {
+    const bytes = Array.from(new TextEncoder().encode(text));
+    if (bytes.length > 106) throw new Error("QR text is too long");
+    const bits = [];
+    appendBits(bits, 0b0100, 4);
+    appendBits(bits, bytes.length, 8);
+    bytes.forEach((byte) => appendBits(bits, byte, 8));
+    const capacityBits = dataCodewords * 8;
+    appendBits(bits, 0, Math.min(4, capacityBits - bits.length));
+    while (bits.length % 8) bits.push(0);
+
+    const data = [];
+    for (let i = 0; i < bits.length; i += 8) {
+      let value = 0;
+      for (let bit = 0; bit < 8; bit += 1) value = (value << 1) | bits[i + bit];
+      data.push(value);
+    }
+    for (let pad = 0; data.length < dataCodewords; pad += 1) data.push(pad % 2 ? 0x11 : 0xec);
+    return data;
+  }
+
+  function appendBits(bits, value, length) {
+    for (let i = length - 1; i >= 0; i -= 1) bits.push((value >>> i) & 1);
+  }
+
+  function drawFunctionPatterns(modules, reserved, version) {
+    const size = modules.length;
+    drawFinder(modules, reserved, 0, 0);
+    drawFinder(modules, reserved, size - 7, 0);
+    drawFinder(modules, reserved, 0, size - 7);
+
+    for (let i = 0; i < size; i += 1) {
+      if (!reserved[6][i]) setModule(modules, reserved, i, 6, i % 2 === 0);
+      if (!reserved[i][6]) setModule(modules, reserved, 6, i, i % 2 === 0);
+    }
+
+    [6, 30].forEach((x) => {
+      [6, 30].forEach((y) => {
+        if (!reserved[y][x]) drawAlignment(modules, reserved, x, y);
+      });
+    });
+
+    for (let i = 0; i <= 8; i += 1) {
+      if (i !== 6) {
+        reserveModule(reserved, 8, i);
+        reserveModule(reserved, i, 8);
+      }
+    }
+    for (let i = size - 8; i < size; i += 1) {
+      reserveModule(reserved, 8, i);
+      reserveModule(reserved, i, 8);
+    }
+    setModule(modules, reserved, 8, version * 4 + 9, true);
+  }
+
+  function drawFinder(modules, reserved, left, top) {
+    for (let y = -1; y <= 7; y += 1) {
+      for (let x = -1; x <= 7; x += 1) {
+        const xx = left + x;
+        const yy = top + y;
+        if (xx < 0 || yy < 0 || yy >= modules.length || xx >= modules.length) continue;
+        const black = x >= 0 && x <= 6 && y >= 0 && y <= 6 && (x === 0 || x === 6 || y === 0 || y === 6 || (x >= 2 && x <= 4 && y >= 2 && y <= 4));
+        setModule(modules, reserved, xx, yy, black);
+      }
+    }
+  }
+
+  function drawAlignment(modules, reserved, cx, cy) {
+    for (let y = -2; y <= 2; y += 1) {
+      for (let x = -2; x <= 2; x += 1) {
+        const black = Math.max(Math.abs(x), Math.abs(y)) === 2 || (x === 0 && y === 0);
+        setModule(modules, reserved, cx + x, cy + y, black);
+      }
+    }
+  }
+
+  function drawCodewords(modules, reserved, codewords, mask) {
+    const size = modules.length;
+    let bitIndex = 0;
+    const totalBits = codewords.length * 8;
+    for (let right = size - 1; right >= 1; right -= 2) {
+      if (right === 6) right -= 1;
+      for (let vert = 0; vert < size; vert += 1) {
+        const y = ((right + 1) & 2) === 0 ? size - 1 - vert : vert;
+        for (let dx = 0; dx < 2; dx += 1) {
+          const x = right - dx;
+          if (reserved[y][x]) continue;
+          let black = false;
+          if (bitIndex < totalBits) {
+            black = ((codewords[Math.floor(bitIndex / 8)] >>> (7 - (bitIndex % 8))) & 1) === 1;
+            bitIndex += 1;
+          }
+          if (maskCondition(mask, x, y)) black = !black;
+          modules[y][x] = black;
+        }
+      }
+    }
+  }
+
+  function maskCondition(mask, x, y) {
+    if (mask === 0) return (x + y) % 2 === 0;
+    return false;
+  }
+
+  function drawFormatBits(modules, reserved, mask) {
+    const size = modules.length;
+    const bits = getFormatBits(mask);
+    const bit = (index) => ((bits >>> index) & 1) === 1;
+    for (let i = 0; i <= 5; i += 1) setModule(modules, reserved, 8, i, bit(i));
+    setModule(modules, reserved, 8, 7, bit(6));
+    setModule(modules, reserved, 8, 8, bit(7));
+    setModule(modules, reserved, 7, 8, bit(8));
+    for (let i = 9; i < 15; i += 1) setModule(modules, reserved, 14 - i, 8, bit(i));
+    for (let i = 0; i < 8; i += 1) setModule(modules, reserved, size - 1 - i, 8, bit(i));
+    for (let i = 8; i < 15; i += 1) setModule(modules, reserved, 8, size - 15 + i, bit(i));
+    setModule(modules, reserved, 8, size - 8, true);
+  }
+
+  function getFormatBits(mask) {
+    const data = (1 << 3) | mask;
+    let remainder = data << 10;
+    for (let i = 14; i >= 10; i -= 1) {
+      if (((remainder >>> i) & 1) !== 0) remainder ^= 0x537 << (i - 10);
+    }
+    return ((data << 10) | remainder) ^ 0x5412;
+  }
+
+  function setModule(modules, reserved, x, y, black) {
+    modules[y][x] = black;
+    reserved[y][x] = true;
+  }
+
+  function reserveModule(reserved, x, y) {
+    reserved[y][x] = true;
+  }
+
+  function reedSolomonRemainder(data, degree) {
+    const gen = reedSolomonGenerator(degree);
+    const result = data.concat(Array(degree).fill(0));
+    data.forEach((_, i) => {
+      const factor = result[i];
+      if (!factor) return;
+      gen.forEach((coef, j) => {
+        result[i + j] ^= gfMultiply(coef, factor);
+      });
+    });
+    return result.slice(data.length);
+  }
+
+  function reedSolomonGenerator(degree) {
+    let result = [1];
+    for (let i = 0; i < degree; i += 1) {
+      const next = Array(result.length + 1).fill(0);
+      result.forEach((coef, j) => {
+        next[j] ^= coef;
+        next[j + 1] ^= gfMultiply(coef, gfPow(i));
+      });
+      result = next;
+    }
+    return result;
+  }
+
+  function gfPow(power) {
+    let value = 1;
+    for (let i = 0; i < power; i += 1) value = gfMultiply(value, 2);
+    return value;
+  }
+
+  function gfMultiply(left, right) {
+    let result = 0;
+    let a = left;
+    let b = right;
+    while (b > 0) {
+      if (b & 1) result ^= a;
+      a <<= 1;
+      if (a & 0x100) a ^= 0x11d;
+      b >>>= 1;
+    }
+    return result;
   }
 
   function renderStock() {
@@ -531,6 +755,10 @@
       renderTables();
       toast("ลบ QR โต๊ะแล้ว");
     }
+    if (action === "copy-qr") {
+      const table = db.tables.find((entry) => entry.id === id);
+      if (table) copyText(customerUrl(table));
+    }
     if (action === "adjust-stock") {
       const entry = db.inventory.find((stock) => stock.id === id);
       if (entry) {
@@ -576,6 +804,27 @@
   document.addEventListener("change", (event) => {
     if (event.target.matches("#orderStatusFilter")) renderOrders();
   });
+
+  function copyText(text) {
+    const done = () => toast("คัดลอกลิงก์ QR แล้ว");
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopyText(text, done));
+      return;
+    }
+    fallbackCopyText(text, done);
+  }
+
+  function fallbackCopyText(text, done) {
+    const input = document.createElement("input");
+    input.value = text;
+    input.style.position = "fixed";
+    input.style.opacity = "0";
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand("copy");
+    input.remove();
+    done();
+  }
 
   document.addEventListener("submit", (event) => {
     event.preventDefault();

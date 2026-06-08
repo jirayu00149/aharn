@@ -504,10 +504,14 @@ button {
 .status-btn,
 .admin-action,
 .chip-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--line);
   background: #fff;
   color: var(--ink);
   padding: 0 10px;
+  text-decoration: none;
 }
 
 .status-btn.primary,
@@ -591,6 +595,12 @@ button {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+.qr-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
 }
 
 .bar-row {
