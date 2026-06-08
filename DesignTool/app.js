@@ -569,13 +569,19 @@
     if (event.target === searchLayer) closeSearch();
   });
 
-  window.addEventListener("hashchange", applyHashTable);
+  window.addEventListener("hashchange", () => {
+    applyHashTable();
+    render();
+  });
 
   function applyHashTable() {
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const table = hash.get("table");
     const guest = hash.get("guest");
-    if (table) state.table = table;
+    if (table) {
+      state.table = table;
+      state.startedAt = Date.now();
+    }
     if (guest) state.name = guest;
   }
 

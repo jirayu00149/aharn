@@ -239,14 +239,14 @@
 
   function renderTables() {
     content.innerHTML = `
-      <div class="section-tools"><h2>โต๊ะและ QR</h2><span class="muted">แอดมินสร้าง QR โต๊ะเอง แล้วนำลิงก์/QR ไปพิมพ์ติดโต๊ะ</span></div>
+      <div class="section-tools"><h2>โต๊ะและ QR สั่งอาหาร</h2><span class="muted">QR หนึ่งใบต่อหนึ่งโต๊ะ ลูกค้าสแกนแล้วเข้าเมนูสั่งอาหารของโต๊ะนั้นทันที</span></div>
       <section class="menu-editor" style="margin-bottom:14px;">
-        <h2>สร้าง QR โต๊ะใหม่</h2>
+        <h2>สร้าง QR สำหรับโต๊ะ</h2>
         <form id="tableForm" class="form-grid">
           <input name="id" placeholder="เลขโต๊ะ เช่น 01 หรือ A1" required />
           <input name="seats" type="number" min="1" placeholder="จำนวนที่นั่ง" value="2" required />
           <input class="span-4" name="name" placeholder="ชื่อโต๊ะ เช่น โต๊ะ 01 / ห้อง VIP" />
-          <button class="admin-action primary span-4" type="submit">สร้าง QR โต๊ะ</button>
+          <button class="admin-action primary span-4" type="submit">สร้าง QR ให้ลูกค้าสแกนสั่งอาหาร</button>
         </form>
       </section>
       <div class="table-grid">
@@ -254,6 +254,7 @@
           <article class="table-tile">
             <strong>${escapeHtml(table.name)}</strong>
             <span class="status-badge">${window.NoodleOS.tableText(table.status)} • ${table.seats} ที่นั่ง</span>
+            <span class="muted">สแกน QR นี้เพื่อสั่งอาหารโต๊ะ ${escapeHtml(table.id)}</span>
             <div class="qr-preview qr-preview-box" data-qr-text="${escapeHtml(customerUrl(table))}" aria-label="QR ${escapeHtml(table.name)}">
               <img src="${escapeHtml(qrImageUrl(table))}" alt="QR ${escapeHtml(table.name)}" />
             </div>
@@ -267,14 +268,16 @@
               <button class="chip-button" data-action="delete-table" data-id="${table.id}">ลบ QR</button>
             </div>
           </article>
-        `).join("") : `<section class="admin-card"><strong>ยังไม่มี QR โต๊ะ</strong><p class="muted">กรอกเลขโต๊ะด้านบนแล้วกด “สร้าง QR โต๊ะ” เพื่อเริ่มใช้งาน</p></section>`}
+        `).join("") : `<section class="admin-card"><strong>ยังไม่มี QR โต๊ะ</strong><p class="muted">กรอกเลขโต๊ะด้านบนแล้วกด “สร้าง QR ให้ลูกค้าสแกนสั่งอาหาร” เพื่อเริ่มใช้งาน</p></section>`}
       </div>
     `;
     hydrateQrPreviews();
   }
 
   function customerUrl(table) {
-    const url = new URL("./index.html", window.location.href);
+    const customerPath = window.location.pathname.includes("/DesignTool/") ? "./index.html" : "./DesignTool/index.html";
+    const url = new URL(customerPath, window.location.href);
+    url.search = "";
     url.hash = `table=${encodeURIComponent(table.id)}`;
     return url.href;
   }
@@ -893,7 +896,7 @@
         name: data.name?.trim() || `โต๊ะ ${normalized}`,
         seats: Math.max(1, Number(data.seats || 1)),
         status: "available",
-        qr: `index.html#table=${encodeURIComponent(normalized)}`,
+        qr: `DesignTool/index.html#table=${encodeURIComponent(normalized)}`,
       };
       const index = db.tables.findIndex((entry) => String(entry.id) === String(normalized));
       if (index >= 0) db.tables[index] = { ...db.tables[index], ...table };

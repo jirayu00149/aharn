@@ -200,22 +200,69 @@
     return JSON.parse(JSON.stringify(value));
   }
 
-  function load() {
+  const API_STATE_PATH = "/api/state";
+
+  function canUseApi() {
+    return /^https?:$/.test(window.location.protocol);
+  }
+
+  function apiRequest(method, payload) {
+    if (!canUseApi()) return null;
+    const request = new XMLHttpRequest();
+    request.open(method, `${window.location.origin}${API_STATE_PATH}`, false);
+    request.setRequestHeader("Accept", "application/json");
+    if (payload) request.setRequestHeader("Content-Type", "application/json");
+    request.send(payload ? JSON.stringify(payload) : null);
+    if (request.status < 200 || request.status >= 300) return null;
+    return request.responseText ? JSON.parse(request.responseText) : null;
+  }
+
+  function readLocal() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
-        const next = clone(seed);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return raw ? JSON.parse(raw) : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function writeLocal(data) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }
+
+  function remotePayload(data) {
+    const next = clone(data);
+    delete next.session;
+    return next;
+  }
+
+  function load() {
+    const local = readLocal();
+    try {
+      const remote = apiRequest("GET");
+      if (remote && typeof remote === "object") {
+        const next = normalize({ ...remote, session: local?.session || remote.session }, { persist: false });
+        writeLocal(next);
         return next;
       }
-      const parsed = JSON.parse(raw);
-      return normalize(parsed);
+    } catch (error) {
+      // Fall back to local state when the API is unavailable.
+    }
+
+    try {
+      if (!local) {
+        const next = clone(seed);
+        writeLocal(next);
+        return next;
+      }
+      return normalize(local);
     } catch (error) {
       return clone(seed);
     }
   }
 
-  function normalize(data) {
+  function normalize(data, options = {}) {
+    const shouldPersist = options.persist !== false;
     const next = { ...clone(seed), ...data };
     next.restaurant = { ...clone(seed).restaurant, ...(data.restaurant || {}) };
     next.categories = data.categories || clone(seed).categories;
@@ -226,12 +273,17 @@
     next.promos = Array.isArray(data.promos) ? data.promos : clone(seed).promos;
     next.staff = Array.isArray(data.staff) ? data.staff : clone(seed).staff;
     next.session = { ...clone(seed).session, ...(data.session || {}) };
-    save(next);
+    if (shouldPersist) save(next);
     return next;
   }
 
   function save(data) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    writeLocal(data);
+    try {
+      apiRequest("POST", remotePayload(data));
+    } catch (error) {
+      // Local state is already saved; the next successful API call will resync.
+    }
   }
 
   function reset() {

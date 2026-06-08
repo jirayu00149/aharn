@@ -3,3 +3,6 @@ DesignTool/assets/food-collage.png
 
 # Local browser profile used for screenshot checks.
 .edge-profile/
+
+# Runtime store written by the Node server.
+data/

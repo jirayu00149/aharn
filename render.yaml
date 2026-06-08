@@ -1,7 +1,7 @@
 services:
   - type: web
     name: nensen
-    runtime: static
+    runtime: node
     buildCommand: ""
-    staticPublishPath: ./DesignTool
+    startCommand: node server.js
     autoDeployTrigger: commit
