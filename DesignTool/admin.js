@@ -254,7 +254,9 @@
           <article class="table-tile">
             <strong>${escapeHtml(table.name)}</strong>
             <span class="status-badge">${window.NoodleOS.tableText(table.status)} • ${table.seats} ที่นั่ง</span>
-            <img class="qr-preview" src="${escapeHtml(qrImageUrl(table))}" alt="QR ${escapeHtml(table.name)}" />
+            <div class="qr-preview qr-preview-box" data-qr-text="${escapeHtml(customerUrl(table))}" aria-label="QR ${escapeHtml(table.name)}">
+              <img src="${escapeHtml(qrImageUrl(table))}" alt="QR ${escapeHtml(table.name)}" />
+            </div>
             <input class="admin-input" readonly value="${escapeHtml(customerUrl(table))}" />
             <div class="qr-actions">
               <a class="chip-button" href="${escapeHtml(customerUrl(table))}" target="_blank" rel="noreferrer">เปิดหน้าลูกค้า</a>
@@ -268,6 +270,7 @@
         `).join("") : `<section class="admin-card"><strong>ยังไม่มี QR โต๊ะ</strong><p class="muted">กรอกเลขโต๊ะด้านบนแล้วกด “สร้าง QR โต๊ะ” เพื่อเริ่มใช้งาน</p></section>`}
       </div>
     `;
+    hydrateQrPreviews();
   }
 
   function customerUrl(table) {
@@ -278,6 +281,21 @@
 
   function qrImageUrl(table) {
     return qrSvgDataUrl(customerUrl(table));
+  }
+
+  function hydrateQrPreviews() {
+    if (!window.QRCode) return;
+    content.querySelectorAll("[data-qr-text]").forEach((node) => {
+      const text = node.dataset.qrText;
+      if (!text) return;
+      node.textContent = "";
+      new window.QRCode(node, {
+        text,
+        width: 128,
+        height: 128,
+        correctLevel: window.QRCode.CorrectLevel.M,
+      });
+    });
   }
 
   function qrSvgDataUrl(text) {

@@ -585,10 +585,18 @@ button {
 .qr-preview {
   width: 128px;
   height: 128px;
-  object-fit: contain;
+  display: grid;
+  place-items: center;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
+}
+
+.qr-preview img,
+.qr-preview canvas {
+  width: 112px;
+  height: 112px;
+  object-fit: contain;
 }
 
 .table-status-row {
@@ -865,6 +873,12 @@ button {
   .qr-preview {
     width: 112px;
     height: 112px;
+  }
+
+  .qr-preview img,
+  .qr-preview canvas {
+    width: 96px;
+    height: 96px;
   }
 
   .filter-row,

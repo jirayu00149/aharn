@@ -4,8 +4,6 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>เฮียดี้ ก๋วยเตี๋ยวเรือ</title>
-    <meta http-equiv="refresh" content="0; url=./DesignTool/admin.html" />
-    <link rel="canonical" href="./DesignTool/admin.html" />
     <style>
       body {
         margin: 0;
@@ -24,9 +22,18 @@
     </style>
   </head>
   <body>
-    <p>กำลังเปิดหลังร้าน <a href="./DesignTool/admin.html">คลิกที่นี่</a></p>
+    <p>กำลังเปิด <a id="fallbackLink" href="./admin.html">คลิกที่นี่</a></p>
     <script>
-      window.location.replace("./DesignTool/admin.html");
+      (function () {
+        const isTableSession = window.location.hash.startsWith("#table=");
+        const params = new URLSearchParams(window.location.search);
+        const wantsCustomer = params.has("customer");
+        const target = isTableSession || wantsCustomer
+          ? `./DesignTool/index.html${window.location.search}${window.location.hash}`
+          : "./admin.html";
+        document.getElementById("fallbackLink").href = target;
+        window.location.replace(target);
+      })();
     </script>
   </body>
 </html>
