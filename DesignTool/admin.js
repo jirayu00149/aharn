@@ -7,6 +7,7 @@
   const content = document.getElementById("adminContent");
   const searchInput = document.getElementById("adminSearch");
   const viewTitle = document.getElementById("viewTitle");
+  const menuToggle = document.querySelector(".admin-menu-toggle");
 
   const viewNames = {
     dashboard: "แดชบอร์ด",
@@ -77,6 +78,11 @@
     document.getElementById("branchName").textContent = db.restaurant.branch;
     viewTitle.textContent = viewNames[view];
     document.querySelectorAll(".admin-nav button").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
+  }
+
+  function setAdminMenu(open) {
+    document.body.classList.toggle("admin-menu-open", open);
+    menuToggle?.setAttribute("aria-expanded", String(open));
   }
 
   function renderDashboard() {
@@ -445,6 +451,7 @@
       view = nav.dataset.view;
       editingMenuId = "";
       render();
+      setAdminMenu(false);
       return;
     }
 
@@ -453,6 +460,14 @@
     const action = button.dataset.action;
     const id = button.dataset.id;
 
+    if (action === "toggle-admin-menu") {
+      setAdminMenu(!document.body.classList.contains("admin-menu-open"));
+      return;
+    }
+    if (action === "close-admin-menu") {
+      setAdminMenu(false);
+      return;
+    }
     if (action === "seed-order") seedOrder();
     if (action === "reset-demo") {
       db = window.NoodleOS.reset();
@@ -645,6 +660,10 @@
 
   searchInput.addEventListener("input", () => {
     if (["orders", "menu"].includes(view)) render();
+  });
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") setAdminMenu(false);
   });
 
   render();

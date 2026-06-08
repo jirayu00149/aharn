@@ -24,6 +24,7 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Thai", Tahoma, sans-serif;
+  font-size: 15px;
   letter-spacing: 0;
 }
 
@@ -60,6 +61,10 @@ button {
   padding: 22px 16px;
   background: #161b1f;
   color: #fff;
+}
+
+.sidebar-backdrop {
+  display: none;
 }
 
 .admin-brand {
@@ -171,6 +176,37 @@ button {
   backdrop-filter: blur(16px);
 }
 
+.topbar-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.topbar-title > div {
+  min-width: 0;
+}
+
+.admin-menu-toggle {
+  display: none;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  padding: 0;
+}
+
+.admin-menu-toggle span {
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
 .admin-topbar span {
   color: var(--brand);
   font-size: 13px;
@@ -179,7 +215,7 @@ button {
 
 .admin-topbar h1 {
   margin: 2px 0 0;
-  font-size: clamp(28px, 4vw, 42px);
+  font-size: clamp(26px, 3vw, 36px);
   font-weight: 1000;
   line-height: 1;
 }
@@ -606,16 +642,52 @@ button {
   }
 
   .admin-sidebar {
-    position: static;
-    height: auto;
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    width: min(312px, calc(100vw - 42px));
+    height: 100dvh;
+    padding: 20px 16px 18px;
+    overflow-y: auto;
+    transform: translateX(-105%);
+    transition: transform 0.22s ease;
+    box-shadow: 22px 0 46px rgba(0, 0, 0, 0.2);
+  }
+
+  body.admin-menu-open {
+    overflow: hidden;
+  }
+
+  body.admin-menu-open .admin-sidebar {
+    transform: translateX(0);
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    display: block;
+    background: rgba(7, 10, 12, 0.48);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  body.admin-menu-open .sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .admin-nav {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .sidebar-footer {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-menu-toggle {
+    display: inline-grid;
   }
 
   .admin-grid,
@@ -630,9 +702,16 @@ button {
 }
 
 @media (max-width: 720px) {
+  body {
+    font-size: 14px;
+  }
+
   .admin-topbar {
+    min-height: 78px;
     align-items: stretch;
     flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px 14px;
   }
 
   .topbar-actions,
@@ -640,20 +719,144 @@ button {
     width: 100%;
   }
 
+  .topbar-title {
+    gap: 10px;
+  }
+
+  .admin-menu-toggle {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+  }
+
+  .admin-topbar span {
+    font-size: 11px;
+  }
+
+  .admin-topbar h1 {
+    font-size: 25px;
+    line-height: 1.08;
+  }
+
+  .admin-search {
+    height: 40px;
+    min-width: 0;
+    gap: 8px;
+    padding: 0 10px;
+  }
+
   .topbar-actions button,
   .outline-link {
     flex: 1;
+    min-height: 40px;
+    padding: 0 10px;
+    font-size: 13px;
   }
 
   .admin-content {
+    padding: 12px;
+  }
+
+  .admin-brand {
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+
+  .admin-brand span {
+    width: 46px;
+    height: 46px;
+    font-size: 18px;
+  }
+
+  .admin-brand strong {
+    font-size: 20px;
+  }
+
+  .admin-nav button,
+  .sidebar-footer button,
+  .sidebar-footer a,
+  .admin-action,
+  .status-btn,
+  .chip-button {
+    min-height: 38px;
+    font-size: 14px;
+  }
+
+  .admin-card,
+  .menu-editor,
+  .data-table-wrap {
     padding: 14px;
   }
 
-  .admin-nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .admin-card h2,
+  .menu-editor h2,
+  .data-table-wrap h2 {
+    margin-bottom: 10px;
+    font-size: 18px;
   }
 
-  .kpi-grid,
+  .section-tools {
+    margin-bottom: 10px;
+  }
+
+  .section-tools h2 {
+    font-size: 20px;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .kpi-card {
+    min-height: 104px;
+    padding: 12px;
+  }
+
+  .kpi-card span,
+  .kpi-card p {
+    font-size: 12px;
+  }
+
+  .kpi-card strong {
+    margin-top: 7px;
+    font-size: 25px;
+  }
+
+  .queue-item,
+  .stock-item,
+  .table-tile,
+  .promo-item,
+  .staff-item {
+    padding: 10px;
+  }
+
+  .queue-item strong,
+  .stock-item strong,
+  .table-tile strong,
+  .order-head h3 {
+    font-size: 16px;
+  }
+
+  .order-card {
+    padding: 12px;
+  }
+
+  .status-badge {
+    min-height: 25px;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+
+  .bar-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .qr-preview {
+    width: 112px;
+    height: 112px;
+  }
+
   .filter-row,
   .settings-grid,
   .form-grid {
