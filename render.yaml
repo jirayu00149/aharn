@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: hiadee-noodle-order
+    runtime: static
+    buildCommand: ""
+    staticPublishPath: ./DesignTool
+    autoDeployTrigger: commit
+

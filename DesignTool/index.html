@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>เฮียดี้ ก๋วยเตี๋ยวเรือ | QR Ordering</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="stage">
+      <main class="phone-shell" id="app" aria-label="เว็บสั่งอาหารร้านเฮียดี้ ก๋วยเตี๋ยวเรือ">
+        <header class="app-header" aria-label="หัวเว็บสั่งอาหาร">
+          <div class="brand-row">
+            <button class="brand-logo-mini" type="button" data-action="open-info" aria-label="ข้อมูลร้าน">ดี้</button>
+            <div class="brand-stack">
+              <span id="brandEyebrow">Hia Tek Noodle OS</span>
+              <strong id="brandHeadline">สั่งก๋วยเตี๋ยวที่โต๊ะ</strong>
+              <p id="headerSession">โต๊ะ 12 • คุณ A</p>
+            </div>
+            <div class="header-actions">
+              <button class="header-icon flag-button" type="button" data-action="toggle-language" aria-label="เปลี่ยนภาษา">
+                <span class="thai-flag" aria-hidden="true"></span>
+              </button>
+              <button class="header-icon receipt-button" type="button" data-action="open-orders" aria-label="รายการที่สั่ง">
+                <span data-icon="receipt"></span>
+                <span class="notification-dot" id="orderDot"></span>
+              </button>
+            </div>
+          </div>
+          <div class="session-bar">
+            <button class="table-pill" type="button" data-action="open-info">
+              <span id="tablePillText">โต๊ะ: 12 | คุณ A</span>
+              <span data-icon="chevron-down"></span>
+            </button>
+            <button class="session-chip icon-only" type="button" data-action="open-settings" aria-label="เมนูระบบ">
+              <span data-icon="monitor"></span>
+            </button>
+          </div>
+        </header>
+
+        <section class="restaurant-hero">
+          <div class="brand-ribbon noodle-ribbon">
+            <span id="heroBadge">Boat Noodles • Tom Yum • Wontons</span>
+            <h1 id="restaurantTitle">เฮียดี้ ก๋วยเตี๋ยวเรือ</h1>
+            <p id="heroCopy">เลือกเส้น ระดับเผ็ด ท็อปปิ้ง และส่งเข้าครัวได้ทันทีจากโต๊ะของคุณ</p>
+          </div>
+          <div class="photo-collage" id="photoCollage" aria-label="ภาพเมนูก๋วยเตี๋ยว"></div>
+          <button class="logo-badge noodle-logo" type="button" data-action="open-info" aria-label="ข้อมูลร้าน">
+            <span class="chef-mark" id="logoMark">เต็ก</span>
+            <span class="chef-hat" aria-hidden="true"></span>
+          </button>
+        </section>
+
+        <section class="restaurant-name service-summary">
+          <div>
+            <span>ช่วงบริการ</span>
+            <strong id="summaryPackage">Dine-in</strong>
+          </div>
+          <div>
+            <span>จำนวนลูกค้า</span>
+            <strong id="summaryDiners">2 ท่าน</strong>
+          </div>
+          <div>
+            <span>เวลานั่ง</span>
+            <strong id="summaryTime">1 นาที</strong>
+          </div>
+        </section>
+
+        <section class="mode-switch" role="tablist" aria-label="ประเภทเมนู">
+          <button class="active" type="button" role="tab" aria-selected="true" data-mode="package">เมนูหน้าร้าน</button>
+          <button type="button" role="tab" aria-selected="false" data-mode="alaCarte">เพิ่มพิเศษ</button>
+        </section>
+
+        <nav class="category-toolbar" aria-label="หมวดหมู่เมนู">
+          <button class="toolbar-icon" type="button" data-action="open-search" aria-label="ค้นหาเมนู">
+            <span data-icon="search"></span>
+          </button>
+          <button class="toolbar-icon" type="button" data-action="open-categories" aria-label="เลือกหมวดหมู่">
+            <span data-icon="list"></span>
+          </button>
+          <div class="category-tabs" id="categoryTabs" role="tablist"></div>
+        </nav>
+
+        <section class="menu-content">
+          <div class="section-heading">
+            <h2 id="sectionTitle">เมนูขายดี</h2>
+            <p id="resultMeta">แตะเมนูเพื่อเลือกเส้น/ความเผ็ด หรือกด + เพื่อเพิ่มทันที</p>
+          </div>
+          <div class="menu-list" id="menuList"></div>
+        </section>
+
+        <section class="cart-bar" id="cartBar" aria-live="polite" hidden>
+          <div>
+            <strong id="cartCount">0 รายการ</strong>
+            <span id="cartTotal">฿0.00</span>
+          </div>
+          <button type="button" data-action="submit-order">
+            <span data-icon="send"></span>
+            ส่งเข้าครัว
+          </button>
+        </section>
+
+        <section class="orders-page" id="ordersPage" aria-hidden="true">
+          <header class="orders-header">
+            <button class="plain-icon" type="button" data-action="close-orders" aria-label="ปิดรายการที่สั่ง">
+              <span data-icon="x"></span>
+            </button>
+            <div>
+              <h2>รายการที่สั่ง</h2>
+              <p id="ordersTimestamp">ข้อมูล ณ เวลา --:--</p>
+            </div>
+            <span aria-hidden="true"></span>
+          </header>
+          <div class="orders-list" id="ordersList"></div>
+          <footer class="orders-summary">
+            <div class="summary-row">
+              <strong id="orderedCount">0 รายการ</strong>
+              <strong id="orderedTotal">฿0.00</strong>
+              <button class="info-chip" type="button" data-action="open-bill-info" aria-label="รายละเอียดราคา">
+                <span data-icon="info"></span>
+              </button>
+            </div>
+            <button class="bill-button" type="button" data-action="open-bill">
+              <span data-icon="receipt"></span>
+              ดูบิลค่าอาหาร
+            </button>
+          </footer>
+        </section>
+
+        <div class="search-layer" id="searchLayer" aria-hidden="true">
+          <div class="search-panel">
+            <label class="search-input-wrap" for="searchInput">
+              <span data-icon="search"></span>
+              <input id="searchInput" type="search" autocomplete="off" placeholder="ค้นหาก๋วยเตี๋ยว ท็อปปิ้ง เครื่องดื่ม" />
+            </label>
+            <button type="button" data-action="close-search">ยกเลิก</button>
+          </div>
+        </div>
+
+        <div class="modal-host" id="modalHost" aria-live="polite"></div>
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      </main>
+    </div>
+
+    <script src="./shared-data.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

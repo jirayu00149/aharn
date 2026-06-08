@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#161b1f" />
+    <title>Admin | เฮียดี้ ก๋วยเตี๋ยวเรือ</title>
+    <link rel="stylesheet" href="./admin.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <a class="admin-brand" href="./admin.html" aria-label="หน้าแรกหลังร้าน">
+          <span id="adminLogo">ดี้</span>
+          <strong id="adminBrandName">เฮียดี้</strong>
+          <small>Noodle OS</small>
+        </a>
+        <nav class="admin-nav" aria-label="เมนูหลังร้าน">
+          <button class="active" type="button" data-view="dashboard">แดชบอร์ด</button>
+          <button type="button" data-view="orders">ออเดอร์สด</button>
+          <button type="button" data-view="menu">จัดการเมนู</button>
+          <button type="button" data-view="tables">โต๊ะและ QR</button>
+          <button type="button" data-view="stock">สต๊อก</button>
+          <button type="button" data-view="promo">โปรโมชัน</button>
+          <button type="button" data-view="staff">พนักงาน</button>
+          <button type="button" data-view="reports">รายงาน</button>
+          <button type="button" data-view="settings">ตั้งค่าร้าน</button>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="./index.html">ไปหน้าลูกค้า</a>
+          <button type="button" data-action="reset-demo">รีเซ็ตเดโม</button>
+        </div>
+      </aside>
+
+      <main class="admin-main">
+        <header class="admin-topbar">
+          <div>
+            <span id="branchName">สาขาตลาดกลาง</span>
+            <h1 id="viewTitle">แดชบอร์ด</h1>
+          </div>
+          <div class="topbar-actions">
+            <label class="admin-search">
+              <span>ค้นหา</span>
+              <input id="adminSearch" type="search" placeholder="ออเดอร์ เมนู โต๊ะ สต๊อก" />
+            </label>
+            <button type="button" data-action="seed-order">สร้างออเดอร์ทดสอบ</button>
+            <a class="outline-link" href="./index.html">หน้าลูกค้า</a>
+          </div>
+        </header>
+
+        <section class="admin-content" id="adminContent" aria-live="polite"></section>
+      </main>
+    </div>
+
+    <div class="admin-toast" id="adminToast" role="status" aria-live="polite"></div>
+
+    <script src="./shared-data.js"></script>
+    <script src="./admin.js"></script>
+  </body>
+</html>
