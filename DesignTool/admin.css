@@ -599,6 +599,17 @@ button {
   object-fit: contain;
 }
 
+.qr-loading,
+.qr-fallback-link {
+  max-width: 92px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.35;
+  text-align: center;
+  text-decoration: none;
+}
+
 .table-status-row {
   display: flex;
   gap: 6px;

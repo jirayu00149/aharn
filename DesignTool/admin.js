@@ -246,7 +246,7 @@
           <input name="id" placeholder="เลขโต๊ะ เช่น 01 หรือ A1" required />
           <input name="seats" type="number" min="1" placeholder="จำนวนที่นั่ง" value="2" required />
           <input class="span-4" name="name" placeholder="ชื่อโต๊ะ เช่น โต๊ะ 01 / ห้อง VIP" />
-          <button class="admin-action primary span-4" type="submit">สร้าง QR ให้ลูกค้าสแกนสั่งอาหาร</button>
+          <button class="admin-action primary span-4" type="button" data-action="create-table-qr">สร้าง QR ให้ลูกค้าสแกนสั่งอาหาร</button>
         </form>
       </section>
       <div class="table-grid">
@@ -256,7 +256,7 @@
             <span class="status-badge">${window.NoodleOS.tableText(table.status)} • ${table.seats} ที่นั่ง</span>
             <span class="muted">สแกน QR นี้เพื่อสั่งอาหารโต๊ะ ${escapeHtml(table.id)}</span>
             <div class="qr-preview qr-preview-box" data-qr-text="${escapeHtml(customerUrl(table))}" aria-label="QR ${escapeHtml(table.name)}">
-              <img src="${escapeHtml(qrImageUrl(table))}" alt="QR ${escapeHtml(table.name)}" />
+              <span class="qr-loading">กำลังสร้าง QR</span>
             </div>
             <input class="admin-input" readonly value="${escapeHtml(customerUrl(table))}" />
             <div class="qr-actions">
@@ -282,239 +282,23 @@
     return url.href;
   }
 
-  function qrImageUrl(table) {
-    return qrSvgDataUrl(customerUrl(table));
-  }
-
   function hydrateQrPreviews() {
-    if (!window.QRCode) return;
     content.querySelectorAll("[data-qr-text]").forEach((node) => {
       const text = node.dataset.qrText;
       if (!text) return;
-      node.textContent = "";
-      new window.QRCode(node, {
-        text,
-        width: 128,
-        height: 128,
-        correctLevel: window.QRCode.CorrectLevel.M,
-      });
+      try {
+        if (!window.QRCode) throw new Error("QRCode library is not ready");
+        node.textContent = "";
+        new window.QRCode(node, {
+          text,
+          width: 128,
+          height: 128,
+          correctLevel: window.QRCode.CorrectLevel.M,
+        });
+      } catch (error) {
+        node.innerHTML = `<a class="qr-fallback-link" href="${escapeHtml(text)}" target="_blank" rel="noreferrer">เปิดลิงก์โต๊ะนี้</a>`;
+      }
     });
-  }
-
-  function qrSvgDataUrl(text) {
-    const modules = makeQrMatrix(text);
-    const quiet = 4;
-    const size = modules.length + quiet * 2;
-    const path = [];
-    for (let y = 0; y < modules.length; y += 1) {
-      for (let x = 0; x < modules.length; x += 1) {
-        if (!modules[y][x]) continue;
-        let run = 1;
-        while (x + run < modules.length && modules[y][x + run]) run += 1;
-        path.push(`M${x + quiet} ${y + quiet}h${run}v1H${x + quiet}z`);
-        x += run - 1;
-      }
-    }
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" shape-rendering="crispEdges"><path fill="#fff" d="M0 0h${size}v${size}H0z"/><path fill="#111" d="${path.join("")}"/></svg>`;
-    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  }
-
-  function makeQrMatrix(text) {
-    const version = 5;
-    const size = version * 4 + 17;
-    const dataCodewords = 108;
-    const eccCodewords = 26;
-    const mask = 0;
-    const data = encodeQrPayload(text, dataCodewords);
-    const codewords = data.concat(reedSolomonRemainder(data, eccCodewords));
-    const modules = Array.from({ length: size }, () => Array(size).fill(false));
-    const reserved = Array.from({ length: size }, () => Array(size).fill(false));
-
-    drawFunctionPatterns(modules, reserved, version);
-    drawCodewords(modules, reserved, codewords, mask);
-    drawFormatBits(modules, reserved, mask);
-    return modules;
-  }
-
-  function encodeQrPayload(text, dataCodewords) {
-    const bytes = Array.from(new TextEncoder().encode(text));
-    if (bytes.length > 106) throw new Error("QR text is too long");
-    const bits = [];
-    appendBits(bits, 0b0100, 4);
-    appendBits(bits, bytes.length, 8);
-    bytes.forEach((byte) => appendBits(bits, byte, 8));
-    const capacityBits = dataCodewords * 8;
-    appendBits(bits, 0, Math.min(4, capacityBits - bits.length));
-    while (bits.length % 8) bits.push(0);
-
-    const data = [];
-    for (let i = 0; i < bits.length; i += 8) {
-      let value = 0;
-      for (let bit = 0; bit < 8; bit += 1) value = (value << 1) | bits[i + bit];
-      data.push(value);
-    }
-    for (let pad = 0; data.length < dataCodewords; pad += 1) data.push(pad % 2 ? 0x11 : 0xec);
-    return data;
-  }
-
-  function appendBits(bits, value, length) {
-    for (let i = length - 1; i >= 0; i -= 1) bits.push((value >>> i) & 1);
-  }
-
-  function drawFunctionPatterns(modules, reserved, version) {
-    const size = modules.length;
-    drawFinder(modules, reserved, 0, 0);
-    drawFinder(modules, reserved, size - 7, 0);
-    drawFinder(modules, reserved, 0, size - 7);
-
-    for (let i = 0; i < size; i += 1) {
-      if (!reserved[6][i]) setModule(modules, reserved, i, 6, i % 2 === 0);
-      if (!reserved[i][6]) setModule(modules, reserved, 6, i, i % 2 === 0);
-    }
-
-    [6, 30].forEach((x) => {
-      [6, 30].forEach((y) => {
-        if (!reserved[y][x]) drawAlignment(modules, reserved, x, y);
-      });
-    });
-
-    for (let i = 0; i <= 8; i += 1) {
-      if (i !== 6) {
-        reserveModule(reserved, 8, i);
-        reserveModule(reserved, i, 8);
-      }
-    }
-    for (let i = size - 8; i < size; i += 1) {
-      reserveModule(reserved, 8, i);
-      reserveModule(reserved, i, 8);
-    }
-    setModule(modules, reserved, 8, version * 4 + 9, true);
-  }
-
-  function drawFinder(modules, reserved, left, top) {
-    for (let y = -1; y <= 7; y += 1) {
-      for (let x = -1; x <= 7; x += 1) {
-        const xx = left + x;
-        const yy = top + y;
-        if (xx < 0 || yy < 0 || yy >= modules.length || xx >= modules.length) continue;
-        const black = x >= 0 && x <= 6 && y >= 0 && y <= 6 && (x === 0 || x === 6 || y === 0 || y === 6 || (x >= 2 && x <= 4 && y >= 2 && y <= 4));
-        setModule(modules, reserved, xx, yy, black);
-      }
-    }
-  }
-
-  function drawAlignment(modules, reserved, cx, cy) {
-    for (let y = -2; y <= 2; y += 1) {
-      for (let x = -2; x <= 2; x += 1) {
-        const black = Math.max(Math.abs(x), Math.abs(y)) === 2 || (x === 0 && y === 0);
-        setModule(modules, reserved, cx + x, cy + y, black);
-      }
-    }
-  }
-
-  function drawCodewords(modules, reserved, codewords, mask) {
-    const size = modules.length;
-    let bitIndex = 0;
-    const totalBits = codewords.length * 8;
-    for (let right = size - 1; right >= 1; right -= 2) {
-      if (right === 6) right -= 1;
-      for (let vert = 0; vert < size; vert += 1) {
-        const y = ((right + 1) & 2) === 0 ? size - 1 - vert : vert;
-        for (let dx = 0; dx < 2; dx += 1) {
-          const x = right - dx;
-          if (reserved[y][x]) continue;
-          let black = false;
-          if (bitIndex < totalBits) {
-            black = ((codewords[Math.floor(bitIndex / 8)] >>> (7 - (bitIndex % 8))) & 1) === 1;
-            bitIndex += 1;
-          }
-          if (maskCondition(mask, x, y)) black = !black;
-          modules[y][x] = black;
-        }
-      }
-    }
-  }
-
-  function maskCondition(mask, x, y) {
-    if (mask === 0) return (x + y) % 2 === 0;
-    return false;
-  }
-
-  function drawFormatBits(modules, reserved, mask) {
-    const size = modules.length;
-    const bits = getFormatBits(mask);
-    const bit = (index) => ((bits >>> index) & 1) === 1;
-    for (let i = 0; i <= 5; i += 1) setModule(modules, reserved, 8, i, bit(i));
-    setModule(modules, reserved, 8, 7, bit(6));
-    setModule(modules, reserved, 8, 8, bit(7));
-    setModule(modules, reserved, 7, 8, bit(8));
-    for (let i = 9; i < 15; i += 1) setModule(modules, reserved, 14 - i, 8, bit(i));
-    for (let i = 0; i < 8; i += 1) setModule(modules, reserved, size - 1 - i, 8, bit(i));
-    for (let i = 8; i < 15; i += 1) setModule(modules, reserved, 8, size - 15 + i, bit(i));
-    setModule(modules, reserved, 8, size - 8, true);
-  }
-
-  function getFormatBits(mask) {
-    const data = (1 << 3) | mask;
-    let remainder = data << 10;
-    for (let i = 14; i >= 10; i -= 1) {
-      if (((remainder >>> i) & 1) !== 0) remainder ^= 0x537 << (i - 10);
-    }
-    return ((data << 10) | remainder) ^ 0x5412;
-  }
-
-  function setModule(modules, reserved, x, y, black) {
-    modules[y][x] = black;
-    reserved[y][x] = true;
-  }
-
-  function reserveModule(reserved, x, y) {
-    reserved[y][x] = true;
-  }
-
-  function reedSolomonRemainder(data, degree) {
-    const gen = reedSolomonGenerator(degree);
-    const result = data.concat(Array(degree).fill(0));
-    data.forEach((_, i) => {
-      const factor = result[i];
-      if (!factor) return;
-      gen.forEach((coef, j) => {
-        result[i + j] ^= gfMultiply(coef, factor);
-      });
-    });
-    return result.slice(data.length);
-  }
-
-  function reedSolomonGenerator(degree) {
-    let result = [1];
-    for (let i = 0; i < degree; i += 1) {
-      const next = Array(result.length + 1).fill(0);
-      result.forEach((coef, j) => {
-        next[j] ^= coef;
-        next[j + 1] ^= gfMultiply(coef, gfPow(i));
-      });
-      result = next;
-    }
-    return result;
-  }
-
-  function gfPow(power) {
-    let value = 1;
-    for (let i = 0; i < power; i += 1) value = gfMultiply(value, 2);
-    return value;
-  }
-
-  function gfMultiply(left, right) {
-    let result = 0;
-    let a = left;
-    let b = right;
-    while (b > 0) {
-      if (b & 1) result ^= a;
-      a <<= 1;
-      if (a & 0x100) a ^= 0x11d;
-      b >>>= 1;
-    }
-    return result;
   }
 
   function renderStock() {
@@ -690,6 +474,30 @@
     toast("สร้างออเดอร์ทดสอบแล้ว");
   }
 
+  function createTableQr(form) {
+    if (!form) return;
+    const data = Object.fromEntries(new FormData(form).entries());
+    const id = String(data.id || "").trim();
+    if (!id) {
+      toast("กรุณาใส่เลขโต๊ะก่อน");
+      return;
+    }
+    const normalized = id.padStart(/^\d+$/.test(id) ? 2 : id.length, "0");
+    const table = {
+      id: normalized,
+      name: data.name?.trim() || `โต๊ะ ${normalized}`,
+      seats: Math.max(1, Number(data.seats || 1)),
+      status: "available",
+      qr: `DesignTool/index.html#table=${encodeURIComponent(normalized)}`,
+    };
+    const index = db.tables.findIndex((entry) => String(entry.id) === String(normalized));
+    if (index >= 0) db.tables[index] = { ...db.tables[index], ...table };
+    else db.tables.push(table);
+    save();
+    renderTables();
+    toast(`สร้าง QR สั่งอาหารสำหรับโต๊ะ ${normalized} แล้ว`);
+  }
+
   document.addEventListener("click", (event) => {
     const nav = event.target.closest("[data-view]");
     if (nav) {
@@ -721,6 +529,10 @@
       toast("รีเซ็ตข้อมูลเดโมแล้ว");
     }
     if (action === "rerender") render();
+    if (action === "create-table-qr") {
+      createTableQr(button.closest("form"));
+      return;
+    }
     if (action === "set-order-status") {
       const order = db.orders.find((entry) => entry.id === id);
       if (order) {
@@ -888,22 +700,7 @@
     }
 
     if (form.id === "tableForm") {
-      const id = String(data.id || "").trim();
-      if (!id) return;
-      const normalized = id.padStart(/^\d+$/.test(id) ? 2 : id.length, "0");
-      const table = {
-        id: normalized,
-        name: data.name?.trim() || `โต๊ะ ${normalized}`,
-        seats: Math.max(1, Number(data.seats || 1)),
-        status: "available",
-        qr: `DesignTool/index.html#table=${encodeURIComponent(normalized)}`,
-      };
-      const index = db.tables.findIndex((entry) => String(entry.id) === String(normalized));
-      if (index >= 0) db.tables[index] = { ...db.tables[index], ...table };
-      else db.tables.push(table);
-      save();
-      renderTables();
-      toast("สร้าง QR โต๊ะแล้ว");
+      createTableQr(form);
     }
 
     if (form.id === "promoForm") {
