@@ -3,6 +3,8 @@
   let view = new URLSearchParams(window.location.search).get("view") || "dashboard";
   let editingMenuId = "";
   let toastTimer = null;
+  const MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024;
+  const MAX_IMAGE_DATA_LENGTH = 1200000;
 
   const content = document.getElementById("adminContent");
   const searchInput = document.getElementById("adminSearch");
@@ -36,6 +38,24 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
+  }
+
+  function adminImageSrc(item) {
+    const src = item?.img || window.NoodleOS.IMAGE;
+    if (src === window.NoodleOS.IMAGE && !window.location.pathname.includes("/DesignTool/")) {
+      return "./DesignTool/assets/noodle-collage.png";
+    }
+    return src;
+  }
+
+  function adminImageMarkup(item, alt) {
+    return `<img src="${escapeHtml(adminImageSrc(item))}" alt="${escapeHtml(alt || "รูปเมนู")}" loading="lazy">`;
+  }
+
+  function editableImageValue(item) {
+    const src = item?.img || "";
+    if (!src || src === window.NoodleOS.IMAGE || src.startsWith("data:")) return "";
+    return src;
   }
 
   function toast(message) {
@@ -208,6 +228,16 @@
             <select name="category">${categoryOptions.map((cat) => option(cat.id, `${cat.mode === "package" ? "เมนู" : "เพิ่ม"} • ${cat.name}`, item.category || "best")).join("")}</select>
             <input name="station" placeholder="สถานี/วัตถุดิบหลัก" value="${escapeHtml(item.station || "เส้นเล็ก")}" />
             <input name="tags" placeholder="แท็ก คั่นด้วย ," value="${escapeHtml((item.tags || []).join(", "))}" />
+            <input class="span-4" name="img" placeholder="ลิงก์รูปเมนู (ถ้ามี)" value="${escapeHtml(editableImageValue(item))}" />
+            <label class="image-picker span-4">
+              <span>อัปโหลดรูปเมนู</span>
+              <input name="imageFile" type="file" accept="image/*" />
+              <small>รองรับไฟล์ภาพจากเครื่อง ระบบจะย่อรูปก่อนบันทึกให้อัตโนมัติ</small>
+            </label>
+            <div class="menu-image-preview span-4">
+              <div class="admin-menu-thumb is-large">${adminImageMarkup(item, item.name || "ตัวอย่างรูปเมนู")}</div>
+              <span>${item.img && item.img !== window.NoodleOS.IMAGE ? "รูปที่ใช้อยู่ตอนนี้" : "ถ้าไม่ใส่รูป จะใช้ภาพเริ่มต้นของร้าน"}</span>
+            </div>
             <textarea class="span-4" name="desc" placeholder="รายละเอียดเมนู">${escapeHtml(item.desc || "")}</textarea>
             <div class="span-4 button-row">
               <button class="admin-action primary" type="submit">${editingMenuId ? "บันทึกเมนู" : "เพิ่มเมนู"}</button>
@@ -218,10 +248,11 @@
         <section class="data-table-wrap">
           <h2>รายการเมนูทั้งหมด</h2>
           <table class="data-table">
-            <thead><tr><th>เมนู</th><th>หมวด</th><th>ราคา</th><th>ขายได้</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+            <thead><tr><th>รูป</th><th>เมนู</th><th>หมวด</th><th>ราคา</th><th>ขายได้</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
             <tbody>
               ${items.map((entry) => `
                 <tr>
+                  <td><div class="admin-menu-thumb">${adminImageMarkup(entry, entry.name)}</div></td>
                   <td><strong>${escapeHtml(entry.name)}</strong><br><span class="muted">${escapeHtml(entry.desc)}</span></td>
                   <td>${escapeHtml(entry.category)}</td>
                   <td>${window.NoodleOS.money(entry.price)}</td>
@@ -262,6 +293,7 @@
             <div class="qr-actions">
               <a class="chip-button" href="${escapeHtml(customerUrl(table))}" target="_blank" rel="noreferrer">เปิดหน้าลูกค้า</a>
               <button class="chip-button" type="button" data-action="copy-qr" data-id="${table.id}">คัดลอกลิงก์</button>
+              <button class="chip-button" type="button" data-action="download-qr" data-id="${table.id}">โหลด QR</button>
             </div>
             <div class="table-status-row">
               ${["available", "occupied", "reserved", "cleaning"].map((status) => `<button class="chip-button ${table.status === status ? "active" : ""}" data-action="set-table-status" data-id="${table.id}" data-status="${status}">${window.NoodleOS.tableText(status)}</button>`).join("")}
@@ -427,53 +459,6 @@
     if (view === "settings") renderSettings();
   }
 
-  function seedOrder() {
-    const candidates = db.menu.filter((item) => item.available !== false);
-    if (!candidates.length) {
-      toast("ยังไม่มีเมนู กรุณาเพิ่มเมนูก่อนสร้างออเดอร์");
-      view = "menu";
-      render();
-      return;
-    }
-    if (!db.tables.length) {
-      toast("ยังไม่มี QR โต๊ะ กรุณาสร้างโต๊ะก่อน");
-      view = "tables";
-      render();
-      return;
-    }
-    const first = candidates[Math.floor(Math.random() * candidates.length)];
-    const second = candidates[Math.floor(Math.random() * candidates.length)];
-    const table = db.tables.find((entry) => entry.status !== "available") || db.tables[0];
-    const order = {
-      id: `ORD-${String(Date.now()).slice(-6)}`,
-      table: table.id,
-      customer: "Walk-in",
-      status: "new",
-      payment: "unpaid",
-      paid: false,
-      source: "Admin",
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      lines: [first, second].map((item) => ({
-        id: window.NoodleOS.uid("line"),
-        itemId: item.id,
-        name: item.name,
-        en: item.en,
-        price: item.price,
-        qty: 1,
-        optionText: item.mode === "package" ? "เส้นเล็ก • เผ็ดกลาง" : "",
-        note: "",
-        img: item.img,
-        accent: item.accent,
-      })),
-    };
-    db.orders.unshift(order);
-    table.status = "occupied";
-    save();
-    render();
-    toast("สร้างออเดอร์ทดสอบแล้ว");
-  }
-
   function createTableQr(form) {
     if (!form) return;
     const data = Object.fromEntries(new FormData(form).entries());
@@ -496,6 +481,135 @@
     save();
     renderTables();
     toast(`สร้าง QR สั่งอาหารสำหรับโต๊ะ ${normalized} แล้ว`);
+  }
+
+  function safeFileName(value) {
+    return String(value || "table").trim().replace(/[^a-z0-9ก-๙_-]+/gi, "-") || "table";
+  }
+
+  function triggerDownload(href, fileName) {
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  function qrDownloadDataUrl(table) {
+    if (!window.QRCode) throw new Error("QRCode library is not ready");
+    const holder = document.createElement("div");
+    holder.style.position = "fixed";
+    holder.style.left = "-9999px";
+    holder.style.top = "0";
+    document.body.appendChild(holder);
+
+    try {
+      new window.QRCode(holder, {
+        text: customerUrl(table),
+        width: 512,
+        height: 512,
+        correctLevel: window.QRCode.CorrectLevel.M,
+      });
+
+      const qrCanvas = holder.querySelector("canvas");
+      if (!qrCanvas) throw new Error("QR canvas is not ready");
+
+      const canvas = document.createElement("canvas");
+      canvas.width = 720;
+      canvas.height = 900;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#15191d";
+      ctx.textAlign = "center";
+      ctx.font = "700 46px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      ctx.fillText(db.restaurant.shortName || db.restaurant.name || "เฮียดี้", 360, 86, 620);
+      ctx.font = "600 28px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      ctx.fillStyle = "#59626b";
+      ctx.fillText("สแกนเพื่อสั่งอาหารที่โต๊ะ", 360, 130, 620);
+
+      ctx.fillStyle = "#f2f5f7";
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(110, 166, 500, 500, 28);
+      else ctx.rect(110, 166, 500, 500);
+      ctx.fill();
+      ctx.drawImage(qrCanvas, 140, 196, 440, 440);
+
+      ctx.fillStyle = "#15191d";
+      ctx.font = "800 44px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      ctx.fillText(table.name || `โต๊ะ ${table.id}`, 360, 720, 620);
+      ctx.fillStyle = "#7b848d";
+      ctx.font = "500 22px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      ctx.fillText(customerUrl(table), 360, 766, 640);
+      ctx.fillStyle = "#0ea5d3";
+      ctx.font = "800 24px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      ctx.fillText("Powered by เฮียดี้ Noodle OS", 360, 826, 620);
+      return canvas.toDataURL("image/png");
+    } finally {
+      holder.remove();
+    }
+  }
+
+  function downloadQr(table) {
+    try {
+      const href = qrDownloadDataUrl(table);
+      triggerDownload(href, `qr-${safeFileName(table.id)}.png`);
+      toast(`ดาวน์โหลด QR ${table.name} แล้ว`);
+    } catch (error) {
+      window.open(customerUrl(table), "_blank", "noopener,noreferrer");
+      toast("ยังสร้างไฟล์ QR ไม่สำเร็จ เปิดลิงก์โต๊ะแทน");
+    }
+  }
+
+  function readImageFile(file) {
+    return new Promise((resolve, reject) => {
+      if (!file || !file.size) {
+        resolve("");
+        return;
+      }
+      if (!file.type.startsWith("image/")) {
+        reject(new Error("กรุณาเลือกไฟล์รูปภาพเท่านั้น"));
+        return;
+      }
+      if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
+        reject(new Error("รูปใหญ่เกินไป กรุณาใช้ไฟล์ไม่เกิน 5MB"));
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("อ่านไฟล์รูปไม่สำเร็จ"));
+      reader.onload = () => {
+        const source = String(reader.result || "");
+        const image = new Image();
+        image.onerror = () => {
+          if (source.length > MAX_IMAGE_DATA_LENGTH) {
+            reject(new Error("รูปใหญ่เกินไป กรุณาใช้รูปเล็กลงหรือใส่ลิงก์รูปแทน"));
+            return;
+          }
+          resolve(source);
+        };
+        image.onload = () => {
+          const maxSide = 900;
+          const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(image.width * scale));
+          canvas.height = Math.max(1, Math.round(image.height * scale));
+          const ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+          if (dataUrl.length > MAX_IMAGE_DATA_LENGTH) {
+            reject(new Error("รูปยังใหญ่เกินไปหลังย่อ กรุณาใช้รูปเล็กลงหรือใส่ลิงก์รูปแทน"));
+            return;
+          }
+          resolve(dataUrl);
+        };
+        image.src = source;
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   document.addEventListener("click", (event) => {
@@ -521,7 +635,6 @@
       setAdminMenu(false);
       return;
     }
-    if (action === "seed-order") seedOrder();
     if (action === "reset-demo") {
       db = window.NoodleOS.reset();
       editingMenuId = "";
@@ -592,6 +705,10 @@
       const table = db.tables.find((entry) => entry.id === id);
       if (table) copyText(customerUrl(table));
     }
+    if (action === "download-qr") {
+      const table = db.tables.find((entry) => entry.id === id);
+      if (table) downloadQr(table);
+    }
     if (action === "adjust-stock") {
       const entry = db.inventory.find((stock) => stock.id === id);
       if (entry) {
@@ -659,13 +776,24 @@
     done();
   }
 
-  document.addEventListener("submit", (event) => {
+  document.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.target;
     const data = Object.fromEntries(new FormData(form).entries());
 
     if (form.id === "menuForm") {
       const mode = data.mode || "package";
+      const previous = db.menu.find((entry) => entry.id === editingMenuId);
+      const imageFile = form.elements.imageFile?.files?.[0];
+      let img = String(data.img || "").trim();
+      if (imageFile?.size) {
+        try {
+          img = await readImageFile(imageFile);
+        } catch (error) {
+          toast(error.message || "บันทึกรูปเมนูไม่สำเร็จ");
+          return;
+        }
+      }
       const next = {
         id: editingMenuId || window.NoodleOS.uid("menu"),
         mode,
@@ -677,9 +805,9 @@
         station: data.station || "เส้นเล็ก",
         tags: String(data.tags || "").split(",").map((tag) => tag.trim()).filter(Boolean),
         desc: data.desc || "",
-        available: true,
-        img: window.NoodleOS.IMAGE,
-        accent: "#b1452e",
+        available: previous?.available ?? true,
+        img: img || previous?.img || window.NoodleOS.IMAGE,
+        accent: previous?.accent || "#b1452e",
         cost: Math.round(Number(data.price || 0) * 0.42),
         prepMinutes: Number(data.price || 0) > 100 ? 12 : 6,
       };
